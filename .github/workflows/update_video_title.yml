@@ -1,4 +1,4 @@
-name: Update YouTube Video Title
+name: Update YouTube Video
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     - cron: "0 */6 * * *" # This will run every 6 hours. Adjust as needed.
 
 jobs:
-  update_title:
+  update_video:
     runs-on: ubuntu-latest
 
     steps:

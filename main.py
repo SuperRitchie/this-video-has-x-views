@@ -43,8 +43,9 @@ def update_video_title_and_description(youtube, video_id):
     view_count = response['items'][0]['statistics']['viewCount']
     like_count = response['items'][0]['statistics']['likeCount']
     print(f"Current view count: {view_count}")
+    print(f"Current like count: {like_count}")
     new_title = f"This Video Has {view_count} Views"
-    new_description = f"This Video Has {like_count} Likes\n\n" + response['items'][0]['snippet']['description']
+    new_description = f"This Video Has {like_count} Likes"
     
     # Update the video title
     request = youtube.videos().update(
