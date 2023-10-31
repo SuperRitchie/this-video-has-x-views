@@ -1,6 +1,7 @@
 name: Update YouTube Video Title
 
 on:
+  push:
   schedule:
     - cron: "0 */6 * * *" # This will run every 6 hours. Adjust as needed.
 
@@ -15,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.11" # Make sure this matches your Python version
+          python-version: "3.x" # Make sure this matches your Python version
 
       - name: Install dependencies
         run: |
