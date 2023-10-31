@@ -19,8 +19,7 @@ def get_authenticated_service():
     base64_token = os.environ.get('TOKEN_PICKLE')
     token_pickle = base64.b64decode(base64_token)
     creds = pickle.loads(token_pickle)
-
-
+    
     # Load client config from environment variable
     client_config = json.loads(os.environ.get('CLIENT_CONFIG_JSON'))
 
@@ -42,8 +41,10 @@ def update_video_title(youtube, video_id):
     response = request.execute()
     
     view_count = response['items'][0]['statistics']['viewCount']
+    like_count = response['items'][0]['statistics']['likeCount']
     print(f"Current view count: {view_count}")
     new_title = f"This Video Has {view_count} Views"
+    new_description = f"This Video Has {like_count} Likes\n\n" + response['items'][0]['snippet']['description']
     
     # Update the video title
     request = youtube.videos().update(
@@ -53,7 +54,7 @@ def update_video_title(youtube, video_id):
             "snippet": {
                 "title": new_title,
                 "categoryId": response['items'][0]['snippet']['categoryId'],
-                "description": response['items'][0]['snippet']['description']
+                "description": new_description
             }
         }
     )
@@ -63,4 +64,4 @@ if __name__ == "__main__":
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     youtube = get_authenticated_service()
     VIDEO_ID = "nTwzzbuElJI"  # Replace with your video ID
-    update_video_title(youtube, VIDEO_ID)
+    update_video_title_and_description(youtube, VIDEO_ID)
