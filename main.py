@@ -33,7 +33,7 @@ def get_authenticated_service():
     return googleapiclient.discovery.build(API_SERVICE_NAME, API_VERSION, credentials=creds)
 
 # Get the current view count and update the title
-def update_video_title(youtube, video_id):
+def update_video_title_and_description(youtube, video_id):
     request = youtube.videos().list(
         part="snippet,statistics",
         id=video_id
