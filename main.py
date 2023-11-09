@@ -25,8 +25,10 @@ def get_authenticated_service():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
+            print("Refreshing token...")
             creds.refresh(Request())
         else:
+            print("No refresh token found, creating new token...")
             flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
             creds = flow.run_local_server(port=0)
 
