@@ -28,3 +28,4 @@ jobs:
         env:
           TOKEN_PICKLE: ${{ secrets.TOKEN_PICKLE }}
           CLIENT_CONFIG_JSON: ${{ secrets.CLIENT_CONFIG_JSON }}
+          TOKEN_JSON_BASE64: ${{ secrets.TOKEN_JSON_BASE64 }}

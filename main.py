@@ -16,10 +16,11 @@ def get_authenticated_service():
     creds = None
 
     # Load token from environment variable and decode from Base64
-    base64_token = os.environ.get('TOKEN_PICKLE')
-    token_pickle = base64.b64decode(base64_token)
-    creds = pickle.loads(token_pickle)
-    
+    base64_token = os.environ.get('TOKEN_JSON_BASE64')
+    if base64_token:
+        token_json = base64.b64decode(base64_token).decode('utf-8')
+        creds = google.oauth2.credentials.Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
+
     # Load client config from environment variable
     client_config = json.loads(os.environ.get('CLIENT_CONFIG_JSON'))
 
@@ -31,6 +32,10 @@ def get_authenticated_service():
             print("No refresh token found, creating new token...")
             flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
             creds = flow.run_local_server(port=0)
+
+            # Save the new credentials in Base64 format in an environment variable
+            token_json_new = creds.to_json()
+            os.environ['TOKEN_JSON_BASE64'] = base64.b64encode(token_json_new.encode('utf-8')).decode('utf-8')
 
     return googleapiclient.discovery.build(API_SERVICE_NAME, API_VERSION, credentials=creds)
 
