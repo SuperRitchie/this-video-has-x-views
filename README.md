@@ -5,3 +5,6 @@ This repository provides functionality inspired by Tom Scott's ["This Video Has 
 It updates both the video title based on the number of views and the description based on the number of likes every 6 hours.
 
 Correspondingly, the video_id, oauth token, client config from Google Cloud Platform must be provided for the code to run - secret must be updated and scope must include youtube auth.
+
+This unlisted video I made should have its title updated accordingly!
+https://www.youtube.com/watch?v=nTwzzbuElJI
