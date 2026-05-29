@@ -1,9 +1,12 @@
 name: Update YouTube Video
 
 on:
-  push:
+  workflow_dispatch:
   schedule:
-    - cron: "0 */6 * * *" # This will run every 6 hours. Adjust as needed.
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: read
 
 jobs:
   update_video:
@@ -16,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.x" # Make sure this matches your Python version
+          python-version: "3.x"
 
       - name: Install dependencies
         run: |
@@ -26,6 +29,12 @@ jobs:
       - name: Run the script
         run: python ./main.py
         env:
-          TOKEN_PICKLE: ${{ secrets.TOKEN_PICKLE }}
           CLIENT_CONFIG_JSON: ${{ secrets.CLIENT_CONFIG_JSON }}
           TOKEN_JSON_BASE64: ${{ secrets.TOKEN_JSON_BASE64 }}
+          TOKEN_JSON_OUT_FILE: /tmp/youtube-token.b64
+
+      - name: Save refreshed YouTube token
+        if: hashFiles('/tmp/youtube-token.b64') != ''
+        run: gh secret set TOKEN_JSON_BASE64 < /tmp/youtube-token.b64
+        env:
+          GH_TOKEN: ${{ secrets.YOUTUBE_SECRET_PAT }}

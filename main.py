@@ -1,76 +1,146 @@
 import os
 import base64
-import pickle
 import json
+import sys
+
 import googleapiclient.discovery
 import googleapiclient.errors
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
 import google.oauth2.credentials
 
-SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
-API_SERVICE_NAME = 'youtube'
-API_VERSION = 'v3'
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
 
-# Load the secret client info directly from CLIENT_CONFIG
-def get_authenticated_service():
-    creds = None
 
-    # Load token from environment variable and decode from Base64
-    base64_token = os.environ.get('TOKEN_JSON_BASE64')
-    if base64_token:
-        token_json = base64.b64decode(base64_token).decode('utf-8')
-        creds = google.oauth2.credentials.Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
+SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
+API_SERVICE_NAME = "youtube"
+API_VERSION = "v3"
 
-    # Load client config from environment variable
-    client_config = json.loads(os.environ.get('CLIENT_CONFIG_JSON'))
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            print("Refreshing token...")
-            creds.refresh(Request())
-        else:
-            print("No refresh token found, creating new token...")
-            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-            creds = flow.run_local_server(port=0)
+def write_refreshed_token(creds):
+    output_file = os.environ.get("TOKEN_JSON_OUT_FILE")
 
-            # Save the new credentials in Base64 format in an environment variable
-            token_json_new = creds.to_json()
-            os.environ['TOKEN_JSON_BASE64'] = base64.b64encode(token_json_new.encode('utf-8')).decode('utf-8')
+    if not output_file:
+        return
 
-    return googleapiclient.discovery.build(API_SERVICE_NAME, API_VERSION, credentials=creds)
+    token_json = creds.to_json()
+    token_base64 = base64.b64encode(token_json.encode("utf-8")).decode("utf-8")
 
-# Get the current view count and update the title
-def update_video_title_and_description(youtube, video_id):
-    request = youtube.videos().list(
-        part="snippet,statistics",
-        id=video_id
+    with open(output_file, "w", encoding="utf-8") as token_file:
+        token_file.write(token_base64)
+
+
+def load_client_config():
+    raw_client_config = os.environ.get("CLIENT_CONFIG_JSON")
+
+    if not raw_client_config:
+        raise RuntimeError("CLIENT_CONFIG_JSON is missing")
+
+    return json.loads(raw_client_config)
+
+
+def load_saved_credentials():
+    base64_token = os.environ.get("TOKEN_JSON_BASE64")
+
+    if not base64_token:
+        return None
+
+    token_json = base64.b64decode(base64_token).decode("utf-8")
+    token_info = json.loads(token_json)
+
+    return google.oauth2.credentials.Credentials.from_authorized_user_info(
+        token_info,
+        SCOPES,
     )
-    response = request.execute()
-    
-    view_count = response['items'][0]['statistics']['viewCount']
-    like_count = response['items'][0]['statistics']['likeCount']
+
+
+def create_credentials_locally(client_config):
+    print("No valid saved token found")
+
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        raise RuntimeError(
+            "TOKEN_JSON_BASE64 is missing or invalid. Generate it locally first, then save it as a GitHub secret"
+        )
+
+    flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+    creds = flow.run_local_server(port=0)
+
+    write_refreshed_token(creds)
+    return creds
+
+
+def get_authenticated_service():
+    client_config = load_client_config()
+    creds = load_saved_credentials()
+
+    if creds and creds.valid:
+        return googleapiclient.discovery.build(
+            API_SERVICE_NAME,
+            API_VERSION,
+            credentials=creds,
+        )
+
+    if creds and creds.expired and creds.refresh_token:
+        print("Refreshing YouTube token")
+        creds.refresh(Request())
+        write_refreshed_token(creds)
+
+        return googleapiclient.discovery.build(
+            API_SERVICE_NAME,
+            API_VERSION,
+            credentials=creds,
+        )
+
+    creds = create_credentials_locally(client_config)
+
+    return googleapiclient.discovery.build(
+        API_SERVICE_NAME,
+        API_VERSION,
+        credentials=creds,
+    )
+
+
+def update_video_title_and_description(youtube, video_id):
+    response = youtube.videos().list(
+        part="snippet,statistics",
+        id=video_id,
+    ).execute()
+
+    if not response.get("items"):
+        raise RuntimeError(f"No YouTube video found for id {video_id}")
+
+    video = response["items"][0]
+    snippet = video["snippet"]
+    statistics = video["statistics"]
+
+    view_count = statistics.get("viewCount", "0")
+    like_count = statistics.get("likeCount", "0")
+
     print(f"Current view count: {view_count}")
     print(f"Current like count: {like_count}")
+
     new_title = f"This Video Has {view_count} Views"
     new_description = f"This Video Has {like_count} Likes"
-    
-    # Update the video title
-    request = youtube.videos().update(
+
+    youtube.videos().update(
         part="snippet",
         body={
             "id": video_id,
             "snippet": {
                 "title": new_title,
-                "categoryId": response['items'][0]['snippet']['categoryId'],
-                "description": new_description
-            }
-        }
-    )
-    request.execute()
-    
+                "categoryId": snippet["categoryId"],
+                "description": new_description,
+            },
+        },
+    ).execute()
+
+    print("Updated YouTube video title and description")
+
+
 if __name__ == "__main__":
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-    youtube = get_authenticated_service()
-    VIDEO_ID = "nTwzzbuElJI"  # Replace with your video ID
-    update_video_title_and_description(youtube, VIDEO_ID)
+    try:
+        youtube = get_authenticated_service()
+        video_id = "nTwzzbuElJI"
+        update_video_title_and_description(youtube, video_id)
+    except Exception as error:
+        print(f"Error: {error}")
+        sys.exit(1)
